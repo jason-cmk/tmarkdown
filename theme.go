@@ -20,6 +20,7 @@ type palette struct {
 	pale   string // bold text, functions: near-white green
 	codeBg string // background for inline code and code blocks
 	barBg  string // status bar background
+	keyBg  string // keycaps on the help screen
 	onAcc  string // text on a bright-green background
 }
 
@@ -33,6 +34,7 @@ var matrixDark = palette{
 	pale:   "#D0FFD0",
 	codeBg: "#0C170C",
 	barBg:  "#0F2410",
+	keyBg:  "#1C2E1C",
 	onAcc:  "#000000",
 }
 
@@ -47,6 +49,7 @@ var matrixLight = palette{
 	pale:   "#0B3D14",
 	codeBg: "#E6F2E6",
 	barBg:  "#D4EBD4",
+	keyBg:  "#D0E2D0",
 	onAcc:  "#FFFFFF",
 }
 

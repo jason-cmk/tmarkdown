@@ -651,33 +651,88 @@ func (m model) outlineView() string {
 	return fill(lines, m.h-1)
 }
 
-const helpText = `
-  Keys
+// helpGroups lists the keys. Each row is an action and its key choices;
+// each choice is one or more keys drawn as keycaps.
+type helpRow struct {
+	action  string
+	choices [][]string
+}
 
-  ↑ ↓  j k            scroll a line
-  Shift+↑↓  J K       scroll 10 lines
-  Shift+wheel         scroll fast
-  PgUp PgDn  b space  scroll a page
-  Ctrl-u Ctrl-d       scroll half a page
-  g G  Home End       top / bottom
-  mouse wheel         scroll
-
-  /                   search (as you type; Enter keeps it)
-  n N                 next / previous match
-  o                   outline of headings
-  Tab Shift-Tab       select next / previous link
-  Enter               open the selected link
-  r                   reload the file
-  Esc                 back out (clear selection, then search)
-  ?  h                this help
-  q  Ctrl-c           quit
-
-  The file reloads by itself when it changes on disk.
-
-  press any key to close`
+var helpGroups = []struct {
+	title string
+	rows  []helpRow
+}{
+	{"Scrolling", []helpRow{
+		{"Line up / down", [][]string{{"↑", "↓"}, {"k", "j"}}},
+		{"10 lines up / down", [][]string{{"Shift+↑", "Shift+↓"}, {"K", "J"}}},
+		{"Half page up / down", [][]string{{"Ctrl+u", "Ctrl+d"}}},
+		{"Page up / down", [][]string{{"PgUp", "PgDn"}, {"b", "Space"}}},
+		{"Top / bottom", [][]string{{"g", "G"}, {"Home", "End"}}},
+		{"Scroll / fast", [][]string{{"wheel"}, {"Shift+wheel"}}},
+	}},
+	{"Finding things", []helpRow{
+		{"Search as you type", [][]string{{"/"}}},
+		{"Next / previous match", [][]string{{"n", "N"}}},
+		{"Heading outline", [][]string{{"o"}}},
+		{"Next / previous link", [][]string{{"Tab", "Shift+Tab"}}},
+		{"Open selected link", [][]string{{"Enter"}}},
+	}},
+	{"General", []helpRow{
+		{"Back out one level", [][]string{{"Esc"}}},
+		{"Reload file", [][]string{{"r"}}},
+		{"This help", [][]string{{"?"}, {"h"}}},
+		{"Quit", [][]string{{"q"}, {"Ctrl+c"}}},
+	}},
+}
 
 func (m model) helpView() string {
-	return fill(strings.Split(helpText, "\n"), m.h-1)
+	p := paletteFor(m.style)
+	c := func(hex string) lipgloss.Color { return lipgloss.Color(hex) }
+	title := lipgloss.NewStyle().Bold(true).Foreground(c(p.bright))
+	group := lipgloss.NewStyle().Bold(true).Foreground(c(p.green))
+	action := lipgloss.NewStyle().Foreground(c(p.text))
+	dim := lipgloss.NewStyle().Foreground(c(p.muted))
+	keycap := lipgloss.NewStyle().Foreground(c(p.pale)).Background(c(p.keyBg)).Padding(0, 1)
+
+	keys := func(r helpRow) string {
+		var parts []string
+		for _, choice := range r.choices {
+			var caps []string
+			for _, k := range choice {
+				caps = append(caps, keycap.Render(k))
+			}
+			parts = append(parts, strings.Join(caps, " "))
+		}
+		return strings.Join(parts, dim.Render(" or "))
+	}
+
+	actionW := 0
+	for _, g := range helpGroups {
+		for _, r := range g.rows {
+			actionW = max(actionW, lipgloss.Width(r.action))
+		}
+	}
+	var lines []string
+	lines = append(lines, title.Render("Keys"), "")
+	for gi, g := range helpGroups {
+		if gi > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, group.Render(g.title))
+		for _, r := range g.rows {
+			a := action.Render(r.action + strings.Repeat(" ", actionW-lipgloss.Width(r.action)))
+			lines = append(lines, "  "+a+"   "+keys(r))
+		}
+	}
+	lines = append(lines, "", dim.Render("The file reloads by itself when it changes on disk."),
+		dim.Render("Press any key to close."))
+
+	panel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(c(p.faint)).
+		Padding(1, 3).
+		Render(strings.Join(lines, "\n"))
+	return fill(strings.Split(lipgloss.Place(m.w, m.h-1, lipgloss.Center, lipgloss.Center, panel), "\n"), m.h-1)
 }
 
 // fill pads or cuts lines to exactly n rows.
