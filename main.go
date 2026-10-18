@@ -1,0 +1,191 @@
+// tmarkdown shows a rendered markdown file in the terminal.
+package main
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/fsnotify/fsnotify"
+	"golang.org/x/term"
+)
+
+const usage = `tmarkdown - read markdown in the terminal
+
+Usage:
+  tmarkdown [flags] FILE
+  tmarkdown [flags] -          read from stdin
+  cat FILE | tmarkdown         read from stdin
+
+Flags:
+  --dark     force the dark theme
+  --light    force the light theme
+  --plain    print the rendered text and exit (also used when output is piped)
+  -h         show this help
+
+Press ? inside the viewer for keys.
+`
+
+const largeFile = 5 << 20
+
+func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "tmarkdown:", err)
+		os.Exit(1)
+	}
+}
+
+func run(args []string) error {
+	style, plain, path := "", false, ""
+	for _, a := range args {
+		switch a {
+		case "--dark":
+			style = "dark"
+		case "--light":
+			style = "light"
+		case "--plain":
+			plain = true
+		case "-h", "--help":
+			fmt.Print(usage)
+			return nil
+		default:
+			if strings.HasPrefix(a, "--") {
+				return fmt.Errorf("unknown flag %s (try -h)", a)
+			}
+			if path != "" {
+				return errors.New("only one file at a time")
+			}
+			path = a
+		}
+	}
+
+	stdinPiped := !term.IsTerminal(int(os.Stdin.Fd()))
+	if path == "" && !stdinPiped {
+		fmt.Print(usage)
+		return nil
+	}
+
+	var src []byte
+	var err error
+	name := path
+	if path == "" || path == "-" {
+		path, name = "", "stdin"
+		src, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("cannot read stdin: %w", err)
+		}
+	} else {
+		src, err = os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("cannot open %s: %w", path, unwrapPathErr(err))
+		}
+		name = filepath.Base(path)
+	}
+	// PowerShell pipes and some editors add a UTF-8 byte order mark.
+	src = bytes.TrimPrefix(src, []byte("\xef\xbb\xbf"))
+	if looksBinary(src) {
+		return fmt.Errorf("%s looks binary", name)
+	}
+
+	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
+	if style == "" {
+		style = "dark"
+		if isTTY && !detectDark() {
+			style = "light"
+		}
+	}
+
+	if plain || !isTTY {
+		d, err := buildDoc(src, 80, 0, style, true)
+		if err != nil {
+			return err
+		}
+		fmt.Println(strings.Join(d.lines, "\n"))
+		return nil
+	}
+
+	m := newModel(path, name, src, style)
+	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion()}
+	if path == "" {
+		opts = append(opts, tea.WithInputTTY()) // stdin holds the document
+	}
+	p := tea.NewProgram(m, opts...)
+	if path != "" {
+		stop, err := watch(path, func() { p.Send(fileChangedMsg{}) })
+		if err == nil {
+			defer stop()
+		}
+	}
+	_, err = p.Run()
+	return err
+}
+
+func unwrapPathErr(err error) error {
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		return pe.Err
+	}
+	return err
+}
+
+func looksBinary(b []byte) bool {
+	if len(b) > 8192 {
+		b = b[:8192]
+	}
+	return bytes.IndexByte(b, 0) >= 0
+}
+
+// detectDark asks the terminal for its background colour. Some terminals
+// never answer, so give up after 200 ms and assume dark.
+func detectDark() bool {
+	ch := make(chan bool, 1)
+	go func() { ch <- lipgloss.HasDarkBackground() }()
+	select {
+	case dark := <-ch:
+		return dark
+	case <-time.After(200 * time.Millisecond):
+		return true
+	}
+}
+
+// watch calls onChange when path is written, replaced or removed. It
+// watches the directory because many editors save by renaming a temp file.
+func watch(path string, onChange func()) (func(), error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	if err := w.Add(filepath.Dir(abs)); err != nil {
+		w.Close()
+		return nil, err
+	}
+	go func() {
+		for {
+			select {
+			case ev, ok := <-w.Events:
+				if !ok {
+					return
+				}
+				if strings.EqualFold(filepath.Clean(ev.Name), abs) && !ev.Has(fsnotify.Chmod) {
+					onChange()
+				}
+			case _, ok := <-w.Errors:
+				if !ok {
+					return
+				}
+			}
+		}
+	}()
+	return func() { w.Close() }, nil
+}
