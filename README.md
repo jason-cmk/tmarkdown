@@ -17,8 +17,6 @@ then tmarkdown.
 brew install go
 ```
 
-Or download the `.pkg` installer from [go.dev/dl](https://go.dev/dl/).
-
 **Linux**
 
 ```
