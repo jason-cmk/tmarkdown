@@ -15,12 +15,6 @@ then tmarkdown.
 
 ```
 brew install go
-```
-
-Then add `~/go/bin` to your `PATH`, or the shell will say
-`command not found: tmarkdown` after step 2:
-
-```
 echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc
 source ~/.zshrc
 ```
