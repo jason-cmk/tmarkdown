@@ -17,6 +17,14 @@ then tmarkdown.
 brew install go
 ```
 
+Then add `~/go/bin` to your `PATH`, or the shell will say
+`command not found: tmarkdown` after step 2:
+
+```
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc
+source ~/.zshrc
+```
+
 **Linux**
 
 ```
@@ -45,14 +53,6 @@ go install github.com/stephanventer/tmarkdown@latest
 
 This puts the `tmarkdown` binary in `~/go/bin` (`%USERPROFILE%\go\bin` on
 Windows).
-
-**macOS:** `~/go/bin` is not on your `PATH` by default, so add it or the
-shell will say `command not found: tmarkdown`:
-
-```
-echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc
-source ~/.zshrc
-```
 
 Check it with `tmarkdown --help`.
 
