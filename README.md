@@ -32,20 +32,35 @@ Flags: `--dark`, `--light` (the theme is auto-detected otherwise), `--plain`.
 
 ## Keys
 
-| Key | Action |
+**Scrolling**
+
+| Action | Keys |
 |---|---|
-| ↑ ↓ / j k | scroll a line |
-| Shift+↑ ↓ / J K | scroll 10 lines |
-| PgUp PgDn / b space, Ctrl-u Ctrl-d | page / half page |
-| g G / Home End | top / bottom |
-| mouse wheel, Shift+wheel | scroll, scroll fast |
-| `/` then `n` `N` | search, next / previous match |
-| `o` | heading outline |
-| Tab Shift-Tab, Enter | select a link, open it |
-| `r` | reload |
-| Esc | back out one level |
-| `?` | help |
-| `q` Ctrl-c | quit |
+| Line up / down | <kbd>↑</kbd> <kbd>↓</kbd> or <kbd>k</kbd> <kbd>j</kbd> |
+| 10 lines up / down | <kbd>Shift</kbd>+<kbd>↑</kbd> <kbd>↓</kbd> or <kbd>K</kbd> <kbd>J</kbd> |
+| Half page up / down | <kbd>Ctrl</kbd>+<kbd>u</kbd> <kbd>Ctrl</kbd>+<kbd>d</kbd> |
+| Page up / down | <kbd>PgUp</kbd> <kbd>PgDn</kbd> or <kbd>b</kbd> <kbd>Space</kbd> |
+| Top / bottom | <kbd>g</kbd> <kbd>G</kbd> or <kbd>Home</kbd> <kbd>End</kbd> |
+| Scroll / scroll fast | mouse wheel, <kbd>Shift</kbd>+wheel |
+
+**Finding things**
+
+| Action | Keys |
+|---|---|
+| Search (as you type) | <kbd>/</kbd> |
+| Next / previous match | <kbd>n</kbd> <kbd>N</kbd> |
+| Heading outline | <kbd>o</kbd> |
+| Select next / previous link | <kbd>Tab</kbd> <kbd>Shift</kbd>+<kbd>Tab</kbd> |
+| Open selected link | <kbd>Enter</kbd> |
+
+**General**
+
+| Action | Keys |
+|---|---|
+| Back out one level | <kbd>Esc</kbd> |
+| Reload file | <kbd>r</kbd> |
+| Help | <kbd>?</kbd> |
+| Quit | <kbd>q</kbd> or <kbd>Ctrl</kbd>+<kbd>c</kbd> |
 
 Only `http`, `https` and `mailto` links are opened.
 
