@@ -43,16 +43,16 @@ go version
 go install github.com/stephanventer/tmarkdown@latest
 ```
 
-This puts the `tmarkdown` binary in `$(go env GOPATH)/bin` (`~/go/bin` by
-default, `%USERPROFILE%\go\bin` on Windows). Make sure that folder is on your
-`PATH`:
+This puts the `tmarkdown` binary in `~/go/bin` (`%USERPROFILE%\go\bin` on
+Windows).
 
-- **macOS / Linux:** add `export PATH="$PATH:$HOME/go/bin"` to `~/.zshrc` or
-  `~/.bashrc`, then open a new terminal.
-- **Windows:** the Go installer usually adds it already. If `tmarkdown` is not
-  found, add `%USERPROFILE%\go\bin` to your user `PATH` under
-  *Settings → System → About → Advanced system settings → Environment
-  Variables*. Use Windows Terminal or PowerShell for the best display.
+**macOS:** `~/go/bin` is not on your `PATH` by default, so add it or the
+shell will say `command not found: tmarkdown`:
+
+```
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc
+source ~/.zshrc
+```
 
 Check it with `tmarkdown --help`.
 
