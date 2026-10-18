@@ -6,9 +6,60 @@ grey "Matrix" theme.
 
 ## Install
 
+tmarkdown is installed with Go (version 1.27 or newer). Install Go first,
+then tmarkdown.
+
+### 1. Install Go
+
+**macOS**
+
+```
+brew install go
+```
+
+Or download the `.pkg` installer from [go.dev/dl](https://go.dev/dl/).
+
+**Linux**
+
+```
+sudo apt install golang-go      # Debian, Ubuntu
+sudo dnf install golang         # Fedora
+sudo pacman -S go               # Arch
+```
+
+**Windows**
+
+```
+winget install GoLang.Go
+```
+
+Or download the `.msi` installer from [go.dev/dl](https://go.dev/dl/) and run
+it.
+
+Open a new terminal afterwards and check it worked:
+
+```
+go version
+```
+
+### 2. Install tmarkdown
+
 ```
 go install github.com/stephanventer/tmarkdown@latest
 ```
+
+This puts the `tmarkdown` binary in `$(go env GOPATH)/bin` (`~/go/bin` by
+default, `%USERPROFILE%\go\bin` on Windows). Make sure that folder is on your
+`PATH`:
+
+- **macOS / Linux:** add `export PATH="$PATH:$HOME/go/bin"` to `~/.zshrc` or
+  `~/.bashrc`, then open a new terminal.
+- **Windows:** the Go installer usually adds it already. If `tmarkdown` is not
+  found, add `%USERPROFILE%\go\bin` to your user `PATH` under
+  *Settings → System → About → Advanced system settings → Environment
+  Variables*. Use Windows Terminal or PowerShell for the best display.
+
+Check it with `tmarkdown --help`.
 
 ## Use
 
