@@ -256,6 +256,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
+		debugf("mouse button=%v action=%v shift=%v alt=%v ctrl=%v", msg.Button, msg.Action, msg.Shift, msg.Alt, msg.Ctrl)
 		if m.mode == modeNormal {
 			if msg.Action == tea.MouseActionPress {
 				if dir := wheelDir(msg.Button); dir != 0 {
@@ -270,6 +271,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		debugf("key %q", msg.String())
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
@@ -338,6 +340,7 @@ func (m *model) wheel(dir int, fast bool) {
 	if fast {
 		n = fastWheel
 	}
+	debugf("wheel dir=%d streak=%d step=%d", dir, m.wheelStreak, n)
 	if dir < 0 {
 		m.vp.ScrollUp(n)
 	} else {
