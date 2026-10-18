@@ -29,7 +29,7 @@ const (
 	maxWrap   = 100
 	fastLines = 10 // Shift+arrow / J K
 	wheelStep = 3  // lines per wheel notch
-	fastWheel = 15 // Shift/Alt+wheel, and the top acceleration speed
+	fastWheel = 15 // Alt+wheel
 )
 
 type (
@@ -68,12 +68,8 @@ type model struct {
 	flashGen  int
 	reloadGen int
 	resizeGen int
-
-	lastWheel    time.Time // for wheel acceleration
-	wheelStreak  int
-	wheelDirPrev int
-	deleted      bool
-	errText      string
+	deleted   bool
+	errText   string
 }
 
 func newModel(path, name string, src []byte, style string) model {
@@ -260,7 +256,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.mode == modeNormal {
 			if msg.Action == tea.MouseActionPress {
 				if dir := wheelDir(msg.Button); dir != 0 {
-					m.wheel(dir, msg.Shift || msg.Alt)
+					m.wheel(dir, msg.Alt)
 					return m, nil
 				}
 			}
@@ -313,49 +309,29 @@ func (m model) reload(manual bool) (tea.Model, tea.Cmd) {
 	return m, m.setFlash("reloaded")
 }
 
-// wheelDir maps wheel buttons to -1 (up) or +1 (down). Some terminals
-// turn Shift+wheel into a sideways wheel, so left/right count as up/down.
+// wheelDir maps wheel buttons to -1 (up), +1 (down) or 0.
 func wheelDir(b tea.MouseButton) int {
 	switch b {
-	case tea.MouseButtonWheelUp, tea.MouseButtonWheelLeft:
+	case tea.MouseButtonWheelUp:
 		return -1
-	case tea.MouseButtonWheelDown, tea.MouseButtonWheelRight:
+	case tea.MouseButtonWheelDown:
 		return 1
 	}
 	return 0
 }
 
-// wheel scrolls for one wheel notch. Notches arriving in quick succession
-// in the same direction speed up, so a fast spin covers more ground even
-// where the terminal keeps Shift for itself (Windows Terminal does).
+// wheel scrolls one wheel notch: 3 lines, or 15 with Alt held. (Windows
+// Terminal keeps Shift+wheel for itself, so Alt is the fast modifier.)
 func (m *model) wheel(dir int, fast bool) {
-	now := time.Now()
-	if dir == m.wheelDirPrev && now.Sub(m.lastWheel) < 120*time.Millisecond {
-		m.wheelStreak++
-	} else {
-		m.wheelStreak = 0
-	}
-	m.lastWheel, m.wheelDirPrev = now, dir
-	n := wheelStepFor(m.wheelStreak)
+	n := wheelStep
 	if fast {
 		n = fastWheel
 	}
-	debugf("wheel dir=%d streak=%d step=%d", dir, m.wheelStreak, n)
+	debugf("wheel dir=%d step=%d", dir, n)
 	if dir < 0 {
 		m.vp.ScrollUp(n)
 	} else {
 		m.vp.ScrollDown(n)
-	}
-}
-
-func wheelStepFor(streak int) int {
-	switch {
-	case streak < 3:
-		return wheelStep
-	case streak < 8:
-		return wheelStep * 2
-	default:
-		return fastWheel
 	}
 }
 
@@ -713,7 +689,7 @@ var helpGroups = []struct {
 		{"Half page up / down", [][]string{{"Ctrl+u", "Ctrl+d"}}},
 		{"Page up / down", [][]string{{"PgUp", "PgDn"}, {"b", "Space"}}},
 		{"Top / bottom", [][]string{{"g", "G"}, {"Home", "End"}}},
-		{"Scroll (spin faster to speed up)", [][]string{{"wheel"}}},
+		{"Scroll", [][]string{{"wheel"}}},
 		{"Scroll fast", [][]string{{"Alt+wheel"}}},
 	}},
 	{"Finding things", []helpRow{

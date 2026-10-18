@@ -41,7 +41,7 @@ Flags: `--dark`, `--light` (the theme is auto-detected otherwise), `--plain`.
 | Half page up / down | <kbd>Ctrl</kbd>+<kbd>u</kbd> <kbd>Ctrl</kbd>+<kbd>d</kbd> |
 | Page up / down | <kbd>PgUp</kbd> <kbd>PgDn</kbd> or <kbd>b</kbd> <kbd>Space</kbd> |
 | Top / bottom | <kbd>g</kbd> <kbd>G</kbd> or <kbd>Home</kbd> <kbd>End</kbd> |
-| Scroll | mouse wheel (spin faster to speed up) |
+| Scroll | mouse wheel |
 | Scroll fast | <kbd>Alt</kbd>+wheel |
 
 **Finding things**

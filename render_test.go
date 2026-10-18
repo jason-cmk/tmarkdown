@@ -125,17 +125,17 @@ func TestRenderSpeed(t *testing.T) {
 	t.Logf("1 MB render: %v", time.Since(start))
 }
 
-func TestWheelAcceleration(t *testing.T) {
-	if wheelStepFor(0) != wheelStep || wheelStepFor(5) != 2*wheelStep || wheelStepFor(20) != fastWheel {
-		t.Error("wheel steps wrong")
-	}
+func TestWheelSteps(t *testing.T) {
 	m := newModel("", "x", nil, "dark")
 	m.vp.Height = 10
 	m.vp.SetContent(strings.Repeat("x\n", 500))
-	for i := 0; i < 12; i++ { // a quick spin
-		m.wheel(1, false)
+	m.wheel(1, false)
+	m.wheel(1, false)
+	if m.vp.YOffset != 2*wheelStep {
+		t.Errorf("plain wheel: YOffset = %d, want %d", m.vp.YOffset, 2*wheelStep)
 	}
-	if want := 3*3 + 5*6 + 4*15; m.vp.YOffset != want {
-		t.Errorf("after fast spin YOffset = %d, want %d", m.vp.YOffset, want)
+	m.wheel(1, true)
+	if m.vp.YOffset != 2*wheelStep+fastWheel {
+		t.Errorf("alt wheel: YOffset = %d, want %d", m.vp.YOffset, 2*wheelStep+fastWheel)
 	}
 }
