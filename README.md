@@ -33,9 +33,6 @@ sudo pacman -S go               # Arch
 winget install GoLang.Go
 ```
 
-Or download the `.msi` installer from [go.dev/dl](https://go.dev/dl/) and run
-it.
-
 Open a new terminal afterwards and check it worked:
 
 ```
