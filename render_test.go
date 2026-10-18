@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func sampleDoc(t *testing.T) *Doc {
@@ -126,7 +128,7 @@ func TestRenderSpeed(t *testing.T) {
 }
 
 func TestWheelSteps(t *testing.T) {
-	m := newModel("", "x", nil, "dark")
+	m := newModel("", "x", nil, "dark", false)
 	m.vp.Height = 10
 	m.vp.SetContent(strings.Repeat("x\n", 500))
 	m.wheel(1, false)
@@ -137,5 +139,56 @@ func TestWheelSteps(t *testing.T) {
 	m.wheel(1, true)
 	if m.vp.YOffset != 2*wheelStep+fastWheel {
 		t.Errorf("alt wheel: YOffset = %d, want %d", m.vp.YOffset, 2*wheelStep+fastWheel)
+	}
+}
+
+func TestDoubleSpacing(t *testing.T) {
+	d := sampleDoc(t)
+	out, rows := spaceLines(d.lines, d.plain, d.headings, true)
+	if len(out) <= len(d.lines) {
+		t.Fatalf("spaced has %d rows, doc has %d lines", len(out), len(d.lines))
+	}
+	for i, r := range rows {
+		if out[r] != d.lines[i] {
+			t.Fatalf("line %d not at row %d", i, r)
+		}
+	}
+	// No two blank rows are added in a row, and a heading stays on its rule.
+	h := d.headings[1]
+	if rows[h.line+1] != rows[h.line]+1 {
+		t.Error("gap added between H2 and its rule")
+	}
+	m := newModel("", "x", nil, "dark", true)
+	m.rows = rows
+	for i := range rows {
+		if m.toLine(m.toRow(i)) != i {
+			t.Fatalf("toLine(toRow(%d)) = %d", i, m.toLine(m.toRow(i)))
+		}
+	}
+	if _, rows := spaceLines(d.lines, d.plain, d.headings, false); rows[5] != 5 {
+		t.Error("compact rows should be identity")
+	}
+}
+
+func TestHighlightsDrawn(t *testing.T) {
+	src, _ := os.ReadFile("sample.md")
+	for _, spaced := range []bool{false, true} {
+		mm, _ := newModel("", "x", src, "dark", spaced).Update(tea.WindowSizeMsg{Width: 100, Height: 40})
+		m := mm.(model)
+		m.query = "Second"
+		m.matches = findMatches(m.doc.plain, m.query)
+		m.refresh()
+		m.show(m.matches[0].line)
+		if v := m.docView(); !strings.Contains(v, m.th.current+"Second") {
+			t.Errorf("spaced=%v: current match not highlighted", spaced)
+		}
+		mm, _ = m.stepLink(true)
+		m = mm.(model)
+		if v := m.docView(); !strings.Contains(v, "▶") || !strings.Contains(v, m.th.link) {
+			t.Errorf("spaced=%v: selected link not drawn", spaced)
+		}
+		if n := strings.Count(m.docView(), "\n"); n != m.vp.Height-1 {
+			t.Errorf("spaced=%v: view has %d rows, want %d", spaced, n+1, m.vp.Height)
+		}
 	}
 }

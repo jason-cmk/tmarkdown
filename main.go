@@ -28,6 +28,7 @@ Flags:
   --dark     force the dark theme
   --light    force the light theme
   --plain    print the rendered text and exit (also used when output is piped)
+  --double   start with double line spacing (press s in the viewer to toggle)
   -h         show this help
 
 Press ? inside the viewer for keys.
@@ -43,7 +44,7 @@ func main() {
 }
 
 func run(args []string) error {
-	style, plain, path := "", false, ""
+	style, plain, path, spaced := "", false, "", false
 	for _, a := range args {
 		switch a {
 		case "--dark":
@@ -52,6 +53,8 @@ func run(args []string) error {
 			style = "light"
 		case "--plain":
 			plain = true
+		case "--double":
+			spaced = true
 		case "-h", "--help":
 			fmt.Print(usage)
 			return nil
@@ -111,7 +114,7 @@ func run(args []string) error {
 		return nil
 	}
 
-	m := newModel(path, name, src, style)
+	m := newModel(path, name, src, style, spaced)
 	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion()}
 	if path == "" {
 		opts = append(opts, tea.WithInputTTY()) // stdin holds the document

@@ -19,7 +19,8 @@ tmarkdown --plain file.md    print the rendered text and exit
 ```
 
 When output is piped, tmarkdown prints instead of opening the viewer.
-Flags: `--dark`, `--light` (the theme is auto-detected otherwise), `--plain`.
+Flags: `--dark`, `--light` (the theme is auto-detected otherwise), `--plain`,
+`--double` (start with double line spacing).
 
 ## Features
 
@@ -60,6 +61,7 @@ Flags: `--dark`, `--light` (the theme is auto-detected otherwise), `--plain`.
 |---|---|
 | Back out one level | <kbd>Esc</kbd> |
 | Reload file | <kbd>r</kbd> |
+| Double / single spacing | <kbd>s</kbd> |
 | Help | <kbd>?</kbd> or <kbd>h</kbd> |
 | Quit | <kbd>q</kbd> or <kbd>Ctrl</kbd>+<kbd>c</kbd> |
 
@@ -67,8 +69,9 @@ Only `http`, `https` and `mailto` links are opened.
 
 ## Line spacing
 
-Terminals set line height, not programs. In Windows Terminal, add
-`"cellHeight": "1.4"` to a profile's `font` settings for airier text.
+Press <kbd>s</kbd> in the viewer for double spacing: a blank row goes
+between neighbouring lines, while headings stay joined to their rules.
+Press it again for single spacing, or start double-spaced with `--double`.
 
 Built with [glamour](https://github.com/charmbracelet/glamour) and
 [Bubble Tea](https://github.com/charmbracelet/bubbletea).

@@ -59,6 +59,12 @@ type model struct {
 
 	sel int // selected link, -1 for none
 
+	spaced  bool           // blank row between text lines
+	base    []string       // rendered rows in the viewport, no highlights
+	rows    []int          // doc line -> viewport row
+	rowLine []int          // viewport row -> doc line, -1 for spacing rows
+	spans   map[int][]span // highlights by doc line
+
 	filter string // outline filter
 	oItems []int  // indexes into doc.headings
 	oSel   int
@@ -72,8 +78,8 @@ type model struct {
 	errText   string
 }
 
-func newModel(path, name string, src []byte, style string) model {
-	return model{path: path, name: name, src: src, style: style, sel: -1, th: newUITheme(style)}
+func newModel(path, name string, src []byte, style string, spaced bool) model {
+	return model{path: path, name: name, src: src, style: style, sel: -1, th: newUITheme(style), spaced: spaced}
 }
 
 func (m model) Init() tea.Cmd { return nil }
@@ -99,41 +105,74 @@ func (m *model) rerender() {
 	if m.sel >= len(d.links) {
 		m.sel = -1
 	}
-	m.refresh()
+	m.layout()
 }
 
-// refresh rebuilds viewport content with search and link highlights.
-func (m *model) refresh() {
+// layout fills the viewport with the plain rendered rows (with or without
+// double spacing). It runs only when the text or spacing changes; search
+// and link highlights are added to the visible rows in docView.
+func (m *model) layout() {
 	if len(bytes.TrimSpace(m.src)) == 0 {
 		msg := "(empty file)"
 		top := strings.Repeat("\n", max(m.vp.Height/2-1, 0))
-		m.vp.SetContent(top + strings.Repeat(" ", max((m.w-len(msg))/2, 0)) + msg)
-		return
+		m.base, m.rows, m.rowLine = strings.Split(top+strings.Repeat(" ", max((m.w-len(msg))/2, 0))+msg, "\n"), nil, nil
+	} else {
+		m.base, m.rows = spaceLines(m.doc.lines, m.doc.plain, m.doc.headings, m.spaced)
+		m.rowLine = make([]int, len(m.base))
+		for i := range m.rowLine {
+			m.rowLine[i] = -1
+		}
+		for ln, r := range m.rows {
+			m.rowLine[r] = ln
+		}
 	}
-	spans := map[int][]span{}
+	m.vp.SetContent(strings.Join(m.base, "\n"))
+	m.refresh()
+}
+
+// refresh recomputes the search and link highlights, keyed by doc line.
+// It is cheap: only the lines on screen are decorated, at draw time.
+func (m *model) refresh() {
+	m.spans = map[int][]span{}
 	for i, mt := range m.matches {
 		code := m.th.match
 		if i == m.cur {
 			code = m.th.current
 		}
-		spans[mt.line] = append(spans[mt.line], span{start: mt.start, end: mt.end, on: code})
+		m.spans[mt.line] = append(m.spans[mt.line], span{start: mt.start, end: mt.end, on: code})
 	}
 	if m.sel >= 0 {
 		l := m.doc.links[m.sel]
-		spans[l.line] = append(spans[l.line], span{start: l.start, end: l.end, on: m.th.link})
+		m.spans[l.line] = append(m.spans[l.line], span{start: l.start, end: l.end, on: m.th.link})
 	}
-	lines := make([]string, len(m.doc.lines))
-	copy(lines, m.doc.lines)
-	for ln, sp := range spans {
-		lines[ln] = decorate(lines[ln], sp)
-	}
+}
+
+// docView draws the visible rows with their highlights, padded to the
+// viewport size the same way the viewport would.
+func (m model) docView() string {
+	top := min(max(m.vp.YOffset, 0), len(m.base))
+	end := min(top+m.vp.Height, len(m.base))
+	selLine := -1
 	if m.sel >= 0 {
-		ln := m.doc.links[m.sel].line
-		if m.pad >= 2 && strings.HasPrefix(lines[ln], strings.Repeat(" ", m.pad)) {
-			lines[ln] = strings.Repeat(" ", m.pad-2) + "▶" + lines[ln][m.pad-1:]
-		}
+		selLine = m.doc.links[m.sel].line
 	}
-	m.vp.SetContent(strings.Join(lines, "\n"))
+	out := make([]string, 0, end-top)
+	for r := top; r < end; r++ {
+		l := m.base[r]
+		if r < len(m.rowLine) {
+			if ln := m.rowLine[r]; ln >= 0 {
+				if sp := m.spans[ln]; len(sp) > 0 {
+					l = decorate(l, sp)
+				}
+				if ln == selLine && m.pad >= 2 && strings.HasPrefix(l, strings.Repeat(" ", m.pad)) {
+					l = strings.Repeat(" ", m.pad-2) + "▶" + l[m.pad-1:]
+				}
+			}
+		}
+		out = append(out, l)
+	}
+	w, h := m.vp.Width, m.vp.Height
+	return lipgloss.NewStyle().Width(w).Height(h).MaxWidth(w).MaxHeight(h).Render(strings.Join(out, "\n"))
 }
 
 // anchor remembers the position as "n lines below heading i" so it
@@ -148,7 +187,7 @@ func (m *model) anchor() anchor {
 	a := anchor{head: -1, pct: m.vp.ScrollPercent()}
 	if i := m.currentHeading(); i >= 0 {
 		h := m.doc.headings[i]
-		a.head, a.off, a.text = i, m.vp.YOffset-h.line, h.text
+		a.head, a.off, a.text = i, m.toLine(m.vp.YOffset)-h.line, h.text
 	}
 	return a
 }
@@ -168,7 +207,7 @@ func (m *model) restore(a anchor) {
 			}
 		}
 		if idx >= 0 {
-			m.vp.SetYOffset(hs[idx].line + a.off)
+			m.vp.SetYOffset(m.toRow(hs[idx].line + a.off))
 			return
 		}
 	}
@@ -180,9 +219,9 @@ func (m *model) currentHeading() int {
 	if m.doc == nil {
 		return -1
 	}
-	idx := -1
+	idx, top := -1, m.toLine(m.vp.YOffset)
 	for i, h := range m.doc.headings {
-		if h.line > m.vp.YOffset {
+		if h.line > top {
 			break
 		}
 		idx = i
@@ -190,8 +229,9 @@ func (m *model) currentHeading() int {
 	return idx
 }
 
-// show scrolls so line is visible, about a third from the top.
+// show scrolls so doc line is visible, about a third from the top.
 func (m *model) show(line int) {
+	line = m.toRow(line)
 	if line < m.vp.YOffset || line >= m.vp.YOffset+m.vp.Height {
 		m.vp.SetYOffset(line - m.vp.Height/3)
 	}
@@ -390,6 +430,15 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m.reload(true)
+	case "s":
+		a := m.anchor()
+		m.spaced = !m.spaced
+		m.layout()
+		m.restore(a)
+		if m.spaced {
+			return m, m.setFlash("double spacing")
+		}
+		return m, m.setFlash("single spacing")
 	case "?", "h":
 		m.mode = modeHelp
 		return m, nil
@@ -420,7 +469,7 @@ func (m model) stepLink(forward bool) (tea.Model, tea.Cmd) {
 	case m.sel < 0 && forward:
 		m.sel = 0
 		for i, l := range links {
-			if l.line >= m.vp.YOffset {
+			if l.line >= m.toLine(m.vp.YOffset) {
 				m.sel = i
 				break
 			}
@@ -428,7 +477,7 @@ func (m model) stepLink(forward bool) (tea.Model, tea.Cmd) {
 	case m.sel < 0:
 		m.sel = len(links) - 1
 		for i := len(links) - 1; i >= 0; i-- {
-			if links[i].line < m.vp.YOffset+m.vp.Height {
+			if links[i].line <= m.toLine(m.vp.YOffset+m.vp.Height-1) {
 				m.sel = i
 				break
 			}
@@ -473,7 +522,7 @@ func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.matches = findMatches(m.doc.plain, m.query)
 	m.cur = 0
 	for i, mt := range m.matches {
-		if mt.line >= m.vp.YOffset {
+		if mt.line >= m.toLine(m.vp.YOffset) {
 			m.cur = i
 			break
 		}
@@ -504,7 +553,7 @@ func (m model) updateOutline(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyEnter:
 		if len(m.oItems) > 0 {
-			m.vp.SetYOffset(m.doc.headings[m.oItems[m.oSel]].line)
+			m.vp.SetYOffset(m.toRow(m.doc.headings[m.oItems[m.oSel]].line))
 		}
 		m.mode = modeNormal
 		return m, nil
@@ -601,7 +650,7 @@ func (m model) View() string {
 	case modeHelp:
 		body = m.helpView()
 	default:
-		body = m.vp.View()
+		body = m.docView()
 	}
 	return body + "\n" + m.statusBar()
 }
@@ -702,6 +751,7 @@ var helpGroups = []struct {
 	{"General", []helpRow{
 		{"Back out one level", [][]string{{"Esc"}}},
 		{"Reload file", [][]string{{"r"}}},
+		{"Double / single spacing", [][]string{{"s"}}},
 		{"This help", [][]string{{"?"}, {"h"}}},
 		{"Quit", [][]string{{"q"}, {"Ctrl+c"}}},
 	}},
