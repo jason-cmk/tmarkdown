@@ -359,7 +359,7 @@ func mapHeadings(heads []heading, plain [][]rune) []heading {
 		want := strings.ToLower(h.text)
 		for k := ln; k < len(plain); k++ {
 			t := strings.ToLower(strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(string(plain[k])), "#")))
-			if t != "" && (strings.Contains(t, want) || strings.HasPrefix(want, t)) {
+			if t != "" && strings.HasPrefix(want, t) {
 				h.line = k
 				out = append(out, h)
 				ln = k + 1

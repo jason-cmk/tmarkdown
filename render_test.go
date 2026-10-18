@@ -192,3 +192,27 @@ func TestHighlightsDrawn(t *testing.T) {
 		}
 	}
 }
+
+// A heading's text can appear inside an earlier paragraph ("use" in
+// USERPROFILE); the heading must still map to its own line.
+func TestHeadingNotMatchedInsideParagraph(t *testing.T) {
+	src := []byte("# Title\n\nSet %USERPROFILE% first.\n\n## Use\n\nBody.\n")
+	d, err := buildDoc(src, 80, 3, "dark", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var para bool
+	for _, p := range d.plain {
+		if strings.Contains(string(p), "USERPROFILE") {
+			para = true
+		}
+	}
+	if !para {
+		t.Fatal("paragraph containing USERPROFILE was replaced by a heading")
+	}
+	for _, p := range d.plain {
+		if strings.Contains(string(p), "## Use") {
+			t.Errorf("raw heading marker left in output: %q", string(p))
+		}
+	}
+}
