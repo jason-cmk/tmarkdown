@@ -28,7 +28,8 @@ const (
 const (
 	maxWrap   = 100
 	fastLines = 10 // Shift+arrow / J K
-	fastWheel = 15 // Shift+wheel (normal wheel is 3)
+	wheelStep = 3  // lines per wheel notch
+	fastWheel = 15 // Shift/Alt+wheel, and the top acceleration speed
 )
 
 type (
@@ -67,8 +68,12 @@ type model struct {
 	flashGen  int
 	reloadGen int
 	resizeGen int
-	deleted   bool
-	errText   string
+
+	lastWheel    time.Time // for wheel acceleration
+	wheelStreak  int
+	wheelDirPrev int
+	deleted      bool
+	errText      string
 }
 
 func newModel(path, name string, src []byte, style string) model {
@@ -252,17 +257,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseMsg:
 		if m.mode == modeNormal {
-			// Shift+wheel scrolls faster. Some terminals turn Shift+wheel
-			// into a sideways wheel, so treat left/right as fast up/down.
 			if msg.Action == tea.MouseActionPress {
-				switch {
-				case msg.Button == tea.MouseButtonWheelLeft,
-					msg.Button == tea.MouseButtonWheelUp && msg.Shift:
-					m.vp.ScrollUp(fastWheel)
-					return m, nil
-				case msg.Button == tea.MouseButtonWheelRight,
-					msg.Button == tea.MouseButtonWheelDown && msg.Shift:
-					m.vp.ScrollDown(fastWheel)
+				if dir := wheelDir(msg.Button); dir != 0 {
+					m.wheel(dir, msg.Shift || msg.Alt)
 					return m, nil
 				}
 			}
@@ -312,6 +309,51 @@ func (m model) reload(manual bool) (tea.Model, tea.Cmd) {
 	m.rerender()
 	m.restore(a)
 	return m, m.setFlash("reloaded")
+}
+
+// wheelDir maps wheel buttons to -1 (up) or +1 (down). Some terminals
+// turn Shift+wheel into a sideways wheel, so left/right count as up/down.
+func wheelDir(b tea.MouseButton) int {
+	switch b {
+	case tea.MouseButtonWheelUp, tea.MouseButtonWheelLeft:
+		return -1
+	case tea.MouseButtonWheelDown, tea.MouseButtonWheelRight:
+		return 1
+	}
+	return 0
+}
+
+// wheel scrolls for one wheel notch. Notches arriving in quick succession
+// in the same direction speed up, so a fast spin covers more ground even
+// where the terminal keeps Shift for itself (Windows Terminal does).
+func (m *model) wheel(dir int, fast bool) {
+	now := time.Now()
+	if dir == m.wheelDirPrev && now.Sub(m.lastWheel) < 120*time.Millisecond {
+		m.wheelStreak++
+	} else {
+		m.wheelStreak = 0
+	}
+	m.lastWheel, m.wheelDirPrev = now, dir
+	n := wheelStepFor(m.wheelStreak)
+	if fast {
+		n = fastWheel
+	}
+	if dir < 0 {
+		m.vp.ScrollUp(n)
+	} else {
+		m.vp.ScrollDown(n)
+	}
+}
+
+func wheelStepFor(streak int) int {
+	switch {
+	case streak < 3:
+		return wheelStep
+	case streak < 8:
+		return wheelStep * 2
+	default:
+		return fastWheel
+	}
 }
 
 func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -668,7 +710,8 @@ var helpGroups = []struct {
 		{"Half page up / down", [][]string{{"Ctrl+u", "Ctrl+d"}}},
 		{"Page up / down", [][]string{{"PgUp", "PgDn"}, {"b", "Space"}}},
 		{"Top / bottom", [][]string{{"g", "G"}, {"Home", "End"}}},
-		{"Scroll / fast", [][]string{{"wheel"}, {"Shift+wheel"}}},
+		{"Scroll (spin faster to speed up)", [][]string{{"wheel"}}},
+		{"Scroll fast", [][]string{{"Alt+wheel"}}},
 	}},
 	{"Finding things", []helpRow{
 		{"Search as you type", [][]string{{"/"}}},
