@@ -369,7 +369,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m.reload(true)
-	case "?":
+	case "?", "h":
 		m.mode = modeHelp
 		return m, nil
 	case "g", "home":
@@ -669,6 +669,7 @@ const helpText = `
   Enter               open the selected link
   r                   reload the file
   Esc                 back out (clear selection, then search)
+  ?  h                this help
   q  Ctrl-c           quit
 
   The file reloads by itself when it changes on disk.

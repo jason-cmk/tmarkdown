@@ -59,7 +59,7 @@ Flags: `--dark`, `--light` (the theme is auto-detected otherwise), `--plain`.
 |---|---|
 | Back out one level | <kbd>Esc</kbd> |
 | Reload file | <kbd>r</kbd> |
-| Help | <kbd>?</kbd> |
+| Help | <kbd>?</kbd> or <kbd>h</kbd> |
 | Quit | <kbd>q</kbd> or <kbd>Ctrl</kbd>+<kbd>c</kbd> |
 
 Only `http`, `https` and `mailto` links are opened.
