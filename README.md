@@ -64,10 +64,7 @@ Run the install command again to get the latest release:
 go install github.com/stephanventer/tmarkdown@latest
 ```
 
-Then run `tmarkdown --version` to confirm the new version. If it still shows
-the old one, Go may be using a cached copy; try
-`GOPROXY=direct go install github.com/stephanventer/tmarkdown@latest`
-(on Windows PowerShell: `$env:GOPROXY="direct"; go install ...`).
+Just after a release the version may not change; install it directly with `@v0.1.0` instead of `@latest`.
 
 ## Use
 
