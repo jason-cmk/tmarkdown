@@ -45,10 +45,29 @@ go version
 go install github.com/stephanventer/tmarkdown@latest
 ```
 
-This puts the `tmarkdown` binary in `~/go/bin` (`%USERPROFILE%\go\bin` on
-Windows).
-
 Check it with `tmarkdown --version` or `tmarkdown --help`.
+
+### Check the version
+
+```
+tmarkdown --version
+```
+
+This prints something like `tmarkdown v0.1.0`. To see the newest release,
+look at the [releases page](https://github.com/stephanventer/tmarkdown/releases).
+
+### Update
+
+Run the install command again to get the latest release:
+
+```
+go install github.com/stephanventer/tmarkdown@latest
+```
+
+Then run `tmarkdown --version` to confirm the new version. If it still shows
+the old one, Go may be using a cached copy; try
+`GOPROXY=direct go install github.com/stephanventer/tmarkdown@latest`
+(on Windows PowerShell: `$env:GOPROXY="direct"; go install ...`).
 
 ## Use
 
