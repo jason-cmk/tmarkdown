@@ -70,9 +70,13 @@ func TestLinksHiddenAndLocated(t *testing.T) {
 		t.Fatalf("got %d links, want 8", len(d.links))
 	}
 	for _, l := range d.links {
-		got := string(d.plain[l.line][l.start:l.end])
-		if got == "" || !strings.HasSuffix(l.text, got) || strings.HasPrefix(got, " ") {
-			t.Errorf("link %q at line %d [%d,%d) covers %q", l.text, l.line, l.start, l.end, got)
+		var got []string
+		for _, g := range append([]seg{{l.line, l.start, l.end}}, l.more...) {
+			got = append(got, string(d.plain[g.line][g.start:g.end]))
+		}
+		all := strings.Join(got, " ")
+		if all == "" || strings.Join(strings.Fields(all), "") != strings.Join(strings.Fields(l.text), "") || strings.HasPrefix(all, " ") {
+			t.Errorf("link %q at line %d [%d,%d) covers %q", l.text, l.line, l.start, l.end, all)
 		}
 	}
 	if d.links[4].url != "./README.md" {
@@ -214,5 +218,42 @@ func TestHeadingNotMatchedInsideParagraph(t *testing.T) {
 		if strings.Contains(string(p), "## Use") {
 			t.Errorf("raw heading marker left in output: %q", string(p))
 		}
+	}
+}
+
+// A bare URL longer than the width wraps; the selection must cover every part.
+func TestWrappedAutolinkCoversAllLines(t *testing.T) {
+	u := "https://example.com/api/project_badges/measure?project=Some.Long.Name&metric=coverage&token=abcdef0123456789"
+	d, err := buildDoc([]byte("See "+u+" ok\n"), 40, 0, "dark", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.links) != 1 {
+		t.Fatalf("got %d links", len(d.links))
+	}
+	l := d.links[0]
+	var got []rune
+	for _, g := range append([]seg{{l.line, l.start, l.end}}, l.more...) {
+		got = append(got, d.plain[g.line][g.start:g.end]...)
+	}
+	if string(got) != u {
+		t.Errorf("link covers %q, want %q", string(got), u)
+	}
+}
+
+// A link around an image wraps over several lines; all of them are covered.
+func TestWrappedImageLinkCoversAllLines(t *testing.T) {
+	u := "https://example.com/api/project_badges/measure?project=Some.Long.Name&token=abcdef0123456789"
+	d, err := buildDoc([]byte("[![Coverage]("+u+")](https://x.io/a)\n"), 40, 2, "dark", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := d.links[0]
+	if len(l.more) == 0 || l.line != 1 {
+		t.Fatalf("link not extended over wrapped lines: %+v", l)
+	}
+	last := l.more[len(l.more)-1]
+	if got := string(d.plain[last.line][last.start:last.end]); !strings.HasSuffix(u, got) {
+		t.Errorf("last part covers %q", got)
 	}
 }

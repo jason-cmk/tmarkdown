@@ -144,6 +144,9 @@ func (m *model) refresh() {
 	if m.sel >= 0 {
 		l := m.doc.links[m.sel]
 		m.spans[l.line] = append(m.spans[l.line], span{start: l.start, end: l.end, on: m.th.link})
+		for _, g := range l.more {
+			m.spans[g.line] = append(m.spans[g.line], span{start: g.start, end: g.end, on: m.th.link})
+		}
 	}
 }
 

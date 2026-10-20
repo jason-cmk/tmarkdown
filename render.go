@@ -65,8 +65,12 @@ type link struct {
 	text       string
 	url        string
 	line       int
-	start, end int // rune columns in the plain line, end exclusive
+	start, end int   // rune columns in the plain line, end exclusive
+	more       []seg // a wrapped link continues on the lines after line
 }
+
+// seg is one wrapped piece of a link: rune columns [start,end) of a line.
+type seg struct{ line, start, end int }
 
 // Doc is one rendering of a markdown source at a given width.
 type Doc struct {
@@ -123,6 +127,10 @@ func buildDoc(src []byte, width, pad int, style string, osc8 bool) (*Doc, error)
 		for i := range d.links {
 			d.links[i].start += pad
 			d.links[i].end += pad
+			for j := range d.links[i].more {
+				d.links[i].more[j].start += pad
+				d.links[i].more[j].end += pad
+			}
 		}
 	}
 	d.headings = mapHeadings(heads, d.plain)
@@ -172,6 +180,15 @@ func scanAST(src []byte) ([]heading, []linkEntry) {
 func nodeText(n ast.Node, src []byte) string {
 	var b strings.Builder
 	_ = ast.Walk(n, func(c ast.Node, entering bool) (ast.WalkStatus, error) {
+		if img, ok := c.(*ast.Image); ok {
+			// glamour draws an image as "Image: alt → url".
+			if entering {
+				b.WriteString("Image: ")
+			} else {
+				b.WriteString(" → " + string(img.Destination))
+			}
+			return ast.WalkContinue, nil
+		}
 		if !entering {
 			return ast.WalkContinue, nil
 		}
@@ -241,7 +258,8 @@ func postProcess(out string, entries []linkEntry) *Doc {
 	col := 0
 	lastSpace := -1 // byte index in cur of a trailing plain space, if any
 	k := 0
-	auto := -1 // index in d.links of an open autolink
+	auto := -1    // index in d.links of an open autolink
+	autoFrom := 0 // column where the open autolink starts on this line
 
 	next := func() linkEntry {
 		k++
@@ -268,8 +286,15 @@ func postProcess(out string, entries []linkEntry) *Doc {
 			continue
 		}
 		if c == '\n' {
-			if auto >= 0 { // bare URL wrapped: keep the part on the last line
-				d.links[auto].start = 0
+			if auto >= 0 { // bare URL wrapped: record this line's part
+				l := &d.links[auto]
+				from, e := textBounds(stripANSI(string(cur)), autoFrom)
+				if len(l.more) == 0 && l.end == 0 {
+					l.end = e
+				} else {
+					l.more = append(l.more, seg{len(d.lines), from, e})
+				}
+				autoFrom = 0
 			}
 			flush()
 			i++
@@ -298,6 +323,7 @@ func postProcess(out string, entries []linkEntry) *Doc {
 				l.line, l.end = len(d.lines), col
 				l.start = l.end - suffixMatch(before, e.text)
 			}
+			extendBack(&l, d.plain, stripANSI(string(cur)), e.text)
 			lastSpace = -1
 			d.links = append(d.links, l)
 		case markAutoStart:
@@ -306,8 +332,13 @@ func postProcess(out string, entries []linkEntry) *Doc {
 			auto = len(d.links) - 1
 		case markAutoEnd:
 			if auto >= 0 {
-				d.links[auto].line = len(d.lines)
-				d.links[auto].end = col
+				l := &d.links[auto]
+				if l.end == 0 && len(l.more) == 0 {
+					l.end = col
+				} else {
+					from, e := textBounds(stripANSI(string(cur)), autoFrom)
+					l.more = append(l.more, seg{len(d.lines), from, min(e, col)})
+				}
 				auto = -1
 			}
 		default:
@@ -329,6 +360,73 @@ func postProcess(out string, entries []linkEntry) *Doc {
 		d.plain = d.plain[:len(d.plain)-1]
 	}
 	return d
+}
+
+// extendBack grows a link whose text wrapped onto earlier lines. The text
+// it has found so far sits at the end of l; the rest is matched backwards
+// character by character (wrapping moves spaces around). If the earlier
+// lines don't hold the text, l is left as it was.
+func extendBack(l *link, plain [][]rune, cur []rune, text string) {
+	need := []rune(strings.Join(strings.Fields(text), ""))
+	row := cur // the line being built isn't in plain yet
+	if l.line < len(plain) {
+		row = plain[l.line]
+	}
+	have := 0
+	for _, r := range row[l.start:min(l.end, len(row))] {
+		if r != ' ' {
+			have++
+		}
+	}
+	if len(need) == 0 || have >= len(need) {
+		return
+	}
+	rem := need[:len(need)-have]
+	var segs []seg // later lines first
+	for ln := min(l.line, len(plain)) - 1; ln >= 0 && len(rem) > 0; ln-- {
+		first, last := -1, -1
+		for j := len(plain[ln]) - 1; j >= 0 && len(rem) > 0; j-- {
+			if plain[ln][j] == ' ' {
+				continue
+			}
+			if plain[ln][j] != rem[len(rem)-1] {
+				return
+			}
+			rem = rem[:len(rem)-1]
+			if last < 0 {
+				last = j + 1
+			}
+			first = j
+		}
+		if first >= 0 {
+			segs = append(segs, seg{ln, first, last})
+		}
+	}
+	if len(rem) > 0 || len(segs) == 0 {
+		return
+	}
+	more := []seg{}
+	for i := len(segs) - 2; i >= 0; i-- {
+		more = append(more, segs[i])
+	}
+	if l.end > l.start {
+		more = append(more, seg{l.line, l.start, l.end})
+	}
+	top := segs[len(segs)-1]
+	l.line, l.start, l.end, l.more = top.line, top.start, top.end, more
+}
+
+// textBounds returns the columns of line's text at or after from, leaving
+// out the indent before it and the padding glamour adds after it.
+func textBounds(line []rune, from int) (int, int) {
+	end := len(line)
+	for end > from && line[end-1] == ' ' {
+		end--
+	}
+	for from < end && line[from] == ' ' {
+		from++
+	}
+	return from, end
 }
 
 // suffixMatch returns how many runes at the end of line match a suffix of
@@ -376,7 +474,11 @@ func addHyperlinks(d *Doc) {
 		if !isWebLink(l.url) || l.end <= l.start {
 			continue
 		}
-		byLine[l.line] = append(byLine[l.line], span{l.start, l.end, "\x1b]8;;" + l.url + "\x1b\\", "\x1b]8;;\x1b\\"})
+		on, off := "\x1b]8;;"+l.url+"\x1b\\", "\x1b]8;;\x1b\\"
+		byLine[l.line] = append(byLine[l.line], span{l.start, l.end, on, off})
+		for _, g := range l.more {
+			byLine[g.line] = append(byLine[g.line], span{g.start, g.end, on, off})
+		}
 	}
 	for ln, sp := range byLine {
 		d.lines[ln] = decorate(d.lines[ln], sp)
