@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -29,10 +30,25 @@ Flags:
   --light    force the light theme
   --plain    print the rendered text and exit (also used when output is piped)
   --double   start with double line spacing (press s in the viewer to toggle)
+  -v         show the version
   -h         show this help
 
 Press ? inside the viewer for keys.
 `
+
+// version is set at build time with -ldflags "-X main.version=1.2.3". Without
+// it, the module version recorded by go install is used.
+var version = ""
+
+func versionString() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 const largeFile = 5 << 20
 
@@ -55,6 +71,9 @@ func run(args []string) error {
 			plain = true
 		case "--double":
 			spaced = true
+		case "-v", "--version":
+			fmt.Println("tmarkdown", versionString())
+			return nil
 		case "-h", "--help":
 			fmt.Print(usage)
 			return nil

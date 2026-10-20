@@ -48,7 +48,7 @@ go install github.com/stephanventer/tmarkdown@latest
 This puts the `tmarkdown` binary in `~/go/bin` (`%USERPROFILE%\go\bin` on
 Windows).
 
-Check it with `tmarkdown --help`.
+Check it with `tmarkdown --version` or `tmarkdown --help`.
 
 ## Use
 
