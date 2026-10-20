@@ -257,3 +257,21 @@ func TestWrappedImageLinkCoversAllLines(t *testing.T) {
 		t.Errorf("last part covers %q", got)
 	}
 }
+
+// A heading above a wrapped link adds rule lines; every part of the link
+// must move down with it.
+func TestWrappedLinkBelowHeadingCoversAllLines(t *testing.T) {
+	u := "https://example.com/api/project_badges/measure?project=Some.Long.Name&token=abcdef0123456789"
+	d, err := buildDoc([]byte("## Quality\n\n[![Coverage]("+u+")](https://x.io/a)\n"), 40, 2, "dark", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := d.links[0]
+	var got []rune
+	for _, g := range append([]seg{{l.line, l.start, l.end}}, l.more...) {
+		got = append(got, d.plain[g.line][g.start:g.end]...)
+	}
+	if !strings.HasSuffix(string(got), u) {
+		t.Errorf("link covers %q, want it to end with %q", string(got), u)
+	}
+}

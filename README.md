@@ -53,7 +53,7 @@ Check it with `tmarkdown --version` or `tmarkdown --help`.
 tmarkdown --version
 ```
 
-This prints something like `tmarkdown v0.1.0`. To see the newest release,
+This prints something like `tmarkdown v0.1.2`. To see the newest release,
 look at the [releases page](https://github.com/stephanventer/tmarkdown/releases).
 
 ### Update
@@ -64,7 +64,7 @@ Run the install command again to get the latest release:
 go install github.com/stephanventer/tmarkdown@latest
 ```
 
-Just after a release the version may not change; install it directly with `@v0.1.0` instead of `@latest`.
+Just after a release the version may not change; install it directly with `@v0.1.2` instead of `@latest`.
 
 ## Use
 

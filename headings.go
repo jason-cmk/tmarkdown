@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -87,6 +88,10 @@ func styleHeadings(d *Doc, width, pad int, style string) {
 			switch {
 			case l.line > last:
 				l.line += shift
+				l.more = slices.Clone(l.more)
+				for j := range l.more {
+					l.more[j].line += shift
+				}
 				kept = append(kept, l)
 			case l.line < first:
 				kept = append(kept, l)
