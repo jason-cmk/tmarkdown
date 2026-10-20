@@ -83,12 +83,16 @@ Flags: `--dark`, `--light` (the theme is auto-detected otherwise), `--plain`,
 
 ## Features
 
-- Headings told apart by weight and rules instead of `#` marks
-- Tables, syntax-highlighted code blocks, word wrap (max 100 columns, centred)
+- Headings set apart by weight and underlines, not `#` marks
+- Tables, task lists, blockquotes and syntax-highlighted code blocks
+- Word wrap at up to 100 columns, centred
 - Search as you type, with every match highlighted
 - Heading outline you can filter and jump from
-- Link URLs hidden in the text; select a link to see it and open it
+- Links stay clean in the text; select one to see its URL and open it
 - Reloads when the file changes on disk, keeping your place
+- Dark and light themes, auto-detected
+- Reads from a file or stdin; prints plain text when piped
+- Optional double line spacing
 
 ## Keys
 
