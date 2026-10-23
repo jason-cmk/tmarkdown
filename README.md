@@ -251,5 +251,11 @@ A theme can also live in `config.toml` itself, as `[themes.NAME]`,
 `[themes.NAME.dark]` and `[themes.NAME.light]` tables. Without `extends`,
 missing roles come from Matrix, the built-in default.
 
+Theme packs can be dropped into a folder under `themes/`, for example a git
+clone at `~/.config/tmarkdown/themes/catppuccin/`. tmarkdown also looks one
+folder down for `NAME.toml`, skipping hidden folders such as `.git`. A file
+directly in `themes/` wins; if two folders have the same name, that's an
+error.
+
 Built with [glamour](https://github.com/charmbracelet/glamour) and
 [Bubble Tea](https://github.com/charmbracelet/bubbletea).

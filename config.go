@@ -229,7 +229,7 @@ func (s *settings) lookupTheme(name string, chain []string) (theme, error) {
 		}
 		where := "no [themes." + name + "] table in the config"
 		if s.themeDir != "" {
-			where += " and no file " + filepath.Join(s.themeDir, name+".toml")
+			where += " and no file " + filepath.Join(s.themeDir, name+".toml") + " or " + filepath.Join(s.themeDir, "*", name+".toml")
 		}
 		return theme{}, fmt.Errorf("unknown theme %q: not built in (%s), %s", name, strings.Join(slices.Sorted(maps.Keys(builtinThemes)), ", "), where)
 	}
@@ -259,11 +259,11 @@ func (s *settings) findThemeSpec(name string) (themeSpec, string, bool, error) {
 	if s.themeDir == "" {
 		return themeSpec{}, "", false, nil
 	}
-	p := filepath.Join(s.themeDir, name+".toml")
-	data, err := os.ReadFile(p)
-	if errors.Is(err, fs.ErrNotExist) {
-		return themeSpec{}, "", false, nil
+	p, err := s.themeFile(name)
+	if p == "" || err != nil {
+		return themeSpec{}, "", false, err
 	}
+	data, err := os.ReadFile(p)
 	if err != nil {
 		return themeSpec{}, "", false, fmt.Errorf("cannot read theme %s: %w", p, unwrapPathErr(err))
 	}
@@ -276,6 +276,37 @@ func (s *settings) findThemeSpec(name string) (themeSpec, string, bool, error) {
 		s.warnings = append(s.warnings, fmt.Sprintf("%s: unknown setting %q", p, k.String()))
 	}
 	return spec, p, true, nil
+}
+
+// themeFile finds NAME.toml in the themes directory, or one folder below
+// it so a theme pack can be cloned straight into themes/. Hidden folders
+// such as .git are skipped. It returns "" if there is no such file.
+func (s *settings) themeFile(name string) (string, error) {
+	p := filepath.Join(s.themeDir, name+".toml")
+	if _, err := os.Stat(p); err == nil || !errors.Is(err, fs.ErrNotExist) {
+		return p, nil // let the read report anything other than "missing"
+	}
+	entries, err := os.ReadDir(s.themeDir)
+	if err != nil {
+		return "", nil
+	}
+	var found []string
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		p := filepath.Join(s.themeDir, e.Name(), name+".toml")
+		if _, err := os.Stat(p); err == nil {
+			found = append(found, p)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return "", nil
+	case 1:
+		return found[0], nil
+	}
+	return "", fmt.Errorf("theme %q is in more than one folder: %s", name, strings.Join(found, ", "))
 }
 
 func (s *settings) applyRoles(p *palette, roles map[string]string, src, section string) error {

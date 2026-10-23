@@ -179,6 +179,45 @@ accent = "#BD93F9"
 	}
 }
 
+// A theme pack (for example a git clone) can sit in a folder under themes/.
+func TestThemeInSubfolder(t *testing.T) {
+	dir := t.TempDir()
+	cfg := writeFile(t, filepath.Join(dir, "config.toml"), `theme = "pack-dark"`)
+	writeFile(t, filepath.Join(dir, "themes", "pack", "pack-dark.toml"), "[dark]\ntext = \"#111111\"\n")
+	writeFile(t, filepath.Join(dir, "themes", ".git", "pack-dark.toml"), "[dark]\ntext = \"#999999\"\n")
+	s, err := loadSettings(cfg, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	th, err := s.resolveTheme()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if th.dark.text != "#111111" {
+		t.Errorf("subfolder theme not used: %+v", th.dark)
+	}
+
+	// A file directly in themes/ wins over one in a subfolder.
+	writeFile(t, filepath.Join(dir, "themes", "pack-dark.toml"), "[dark]\ntext = \"#222222\"\n")
+	if th, _ = s.resolveTheme(); th.dark.text != "#222222" {
+		t.Errorf("top-level theme should win: %+v", th.dark)
+	}
+}
+
+func TestThemeInTwoSubfolders(t *testing.T) {
+	dir := t.TempDir()
+	cfg := writeFile(t, filepath.Join(dir, "config.toml"), `theme = "x"`)
+	writeFile(t, filepath.Join(dir, "themes", "a", "x.toml"), "[dark]\ntext = \"#111111\"\n")
+	writeFile(t, filepath.Join(dir, "themes", "b", "x.toml"), "[dark]\ntext = \"#222222\"\n")
+	s, err := loadSettings(cfg, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.resolveTheme(); err == nil || !strings.Contains(err.Error(), "more than one") {
+		t.Errorf("want ambiguity error, got %v", err)
+	}
+}
+
 func TestThemeErrors(t *testing.T) {
 	dir := t.TempDir()
 	tests := []struct{ body, want string }{
